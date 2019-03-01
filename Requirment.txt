@@ -1,0 +1,10 @@
+01 - one month to understand and study the total project and code.
+02 - need to improve more in old AI behaviour part in project 
+03 - need to develop new AI behaviour part according to the requirment.
+04 - Implement the stuff without making any disturbance in old project.
+05 - AI need to be more Realism
+06 - Implement  AI behaviour in total project.
+07 - Need to change the terrain areas.
+
+
+
