@@ -1,0 +1,233 @@
+﻿using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+using System.IO;
+using System;
+using System.Diagnostics;
+using System.Text;
+
+
+public class RayCastPosition : MonoBehaviour {
+
+
+	public GameObject _Temp;
+
+	public float _PixelWidth,_PixelHeight;
+
+	public float ScreenWidth, ScreenHeight;
+
+	public bool StartCapture = true;
+
+	public bool PixelChange = true;
+
+	public string _ExcelName = "Sheet01";
+
+	public float Time = 1f;
+	private char lineSeperater = '\n'; 
+	private char fieldSeperator = ',';
+
+	bool ChangePixel;
+	// Use this for initialization
+	void Start () {
+
+		ScreenWidth = Screen.width;
+		ScreenHeight = Screen.height;
+
+	}
+
+	// Update is called once per frame
+	void Update () {
+		if(Input.GetKeyDown(KeyCode.Space))
+		{
+			if (StartCapture) {
+
+				StartCapture = false;
+
+				// initialize the ray cast hit variable 
+				RaycastHit hit;
+
+				// for writing into the csv file
+				List<string[]> rowData = new List<string[]>();
+				string[] rowDataTemp = new string[10];
+				rowDataTemp[0] = "Xcam";
+				rowDataTemp[1] = "YCam";
+				rowDataTemp[2] = "Zcam";
+
+				rowDataTemp[3] = "znear";
+
+				rowDataTemp[4] = "rx";
+				rowDataTemp[5] = "ry";
+				rowDataTemp[6] = "rz";
+
+				rowDataTemp[7] = "tx";
+				rowDataTemp[8] = "ty";
+				rowDataTemp[9] = "tz";
+
+				rowData.Add (rowDataTemp);
+
+				Matrix4x4 worldToCamera = Camera.main.worldToCameraMatrix;
+				float znear = (float)Camera.main.nearClipPlane;
+
+                for (int yidx = 0; yidx < ScreenHeight; yidx++)
+                {
+                    for (int xidx = 0; xidx < ScreenWidth; xidx++)
+                    {
+						// xidx  = 20;
+						// yidx = 20;
+						Ray ray = Camera.main.ScreenPointToRay(new Vector3(xidx, ScreenHeight - 1 - yidx, 0));
+
+
+                        if (Physics.Raycast(ray, out hit, 1000.0f))
+                        {
+							Vector4 hitpoint = new Vector4 (hit.point.x, hit.point.y, hit.point.z, 1.0f);
+							Vector3 dest_point = worldToCamera.MultiplyPoint (hitpoint);
+							// Vector4 dest_point1 = Camera.main.cameraToWorldMatrix.MultiplyPoint(dest_point);
+
+							rowDataTemp = new string[4];
+
+							rowDataTemp [0] = dest_point.x.ToString ();
+							rowDataTemp [1] = dest_point.y.ToString ();
+							rowDataTemp [2] = dest_point.z.ToString ();
+
+							rowDataTemp [3] = znear.ToString ();
+							rowData.Add (rowDataTemp);
+                        }
+						else
+						{
+							rowDataTemp = new string[4];
+
+							rowDataTemp [0] = (-100).ToString ();
+							rowDataTemp [1] = (-100).ToString ();
+							rowDataTemp [2] = (-6).ToString ();
+
+							rowDataTemp [3] = znear.ToString ();
+							rowData.Add (rowDataTemp);
+						}
+                    }
+                }
+                string[][] output = new string[rowData.Count][];
+
+                for (int i = 0; i < output.Length; i++)
+                {
+                    output[i] = rowData[i];
+                }
+
+                int length = output.GetLength(0);
+                string delimiter = ",";
+
+                StringBuilder sb = new StringBuilder();
+
+                for (int index = 0; index < length; index++)
+                    sb.AppendLine(string.Join(delimiter, output[index]));
+
+
+                string filePath = getPath() + "/ExcelSheet/" + "/" + _ExcelName + ".csv";
+
+                StreamWriter outStream = System.IO.File.CreateText(filePath);
+                outStream.WriteLine(sb);
+                outStream.Close();
+
+			}
+
+
+            UnityEngine.Debug.Log("Depth data saved");
+
+        }
+
+	}
+
+
+	IEnumerator StartCaputer()
+	{
+
+        yield return new WaitForSeconds (0.001f);
+        InvokeRepeating ("CreateTheDistance",2f, Time);
+        
+
+	}
+
+
+	void CreateTheDistance()
+	{
+
+		RaycastHit hit; 
+		Ray ray = Camera.main.ScreenPointToRay(new Vector3(_PixelWidth,_PixelHeight,0));
+        Stopwatch stopWatch = new Stopwatch();
+        stopWatch.Start();
+        if (Physics.Raycast (ray, out hit, 1000.0f)) 
+			{
+				if(_Temp)
+					{
+						_Temp.transform.position = new Vector3 (hit.point.x,hit.point.y,hit.point.z);
+						_Temp.gameObject.GetComponent<TextMesh> ().text = hit.point.z.ToString();
+					}
+			}
+		
+		if(ChangePixel)
+		{
+			_PixelWidth += 1;
+		}else
+		{
+			_PixelWidth = 0;
+			ChangePixel = true;
+		}
+
+
+
+		if (PixelChange) {
+			if (_PixelWidth > (ScreenWidth - 1)) {
+				_PixelWidth = 0;
+				_PixelHeight += 1;
+			}
+			if (_PixelHeight > (ScreenHeight - 1)) {
+				CancelInvoke ("CreateTheDistance");
+				StartCapture = true;
+			}
+		} else {
+			if (_PixelWidth > (ScreenWidth)) {
+				_PixelWidth = 0;
+				_PixelHeight += 1;
+			}
+			if (_PixelHeight > (ScreenHeight)) {
+				CancelInvoke ("CreateTheDistance");
+				StartCapture = true;
+			}
+		}
+	
+
+		File.AppendAllText(getPath()+ "/ExcelSheet/" + "/"+_ExcelName+".csv", _PixelWidth.ToString()  + fieldSeperator + _PixelHeight.ToString()  + fieldSeperator + hit.distance.ToString() + lineSeperater);
+        stopWatch.Stop();
+        // Get the elapsed time as a TimeSpan value.
+        TimeSpan ts = stopWatch.Elapsed;
+
+        // Format and display the TimeSpan value.
+        string elapsedTime = String.Format("{0:00}:{1:00}:{2:00}.{3:00}",
+            ts.Hours, ts.Minutes, ts.Seconds,
+            ts.Milliseconds / 10);
+        UnityEngine.Debug.Log(string.Format("RunTime  " + elapsedTime));
+#if UNITY_EDITOR
+        UnityEditor.AssetDatabase.Refresh ();
+		#endif
+	}
+
+
+	public void addData()
+	{
+
+		File.AppendAllText(getPath() + "/ExcelSheet/" + _ExcelName + ".csv", "Width " + fieldSeperator + "Height" + fieldSeperator + "HitPoint" + lineSeperater);
+
+
+		#if UNITY_EDITOR
+		UnityEditor.AssetDatabase.Refresh ();
+		#endif
+
+	}
+
+	// Get path for given CSV file
+	private static string getPath(){
+
+		return Application.dataPath;
+
+	}
+
+}
